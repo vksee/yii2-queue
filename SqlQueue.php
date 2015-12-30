@@ -8,6 +8,8 @@ use yii\db\Query;
 use yii\db\Expression;
 use yii\base\Component;
 use Yii;
+use yii\helpers\ArrayHelper;
+use yii\helpers\Json;
 
 class SqlQueue extends Component implements QueueInterface
 {
@@ -20,8 +22,6 @@ class SqlQueue extends Component implements QueueInterface
      * @var string Default queue table namespace
      */
     public $default = 'default';
-
-    private $_query;
 
     public function init()
     {
@@ -60,9 +60,9 @@ class SqlQueue extends Component implements QueueInterface
     private function createTable()
     {
         $this->connection->createCommand()->createTable($this->getTableName(), [
-            'id' => 'pk COMMENT "1.0.0"',
+            'id' => 'pk',
             'queue' => 'string(255)',
-            'run_at' => 'timestamp default CURRENT_TIMESTAMP NOT NULL',
+            'run_at' => 'INTEGER NOT NULL',
             'payload' => 'text',
         ])->execute();
         $this->connection->schema->refresh();
@@ -84,29 +84,22 @@ class SqlQueue extends Component implements QueueInterface
     public function push($payload, $queue = null, $delay = 0)
     {
         $this->connection->schema->insert($this->getTableName(), [
-            'queue' => $this->getQueue($queue),
-            'payload' => $payload,
-            'run_at' => new Expression('FROM_UNIXTIME(:unixtime)', [
-                ':unixtime' => time() + $delay,
-            ])
+            'queue' => $queue,
+            'payload' => Json::encode($payload),
+            'run_at' => time() + $delay,
         ]);
         return $this->connection->lastInsertID;
     }
 
     private function getQuery($queue)
     {
-        if ($this->_query) {
-            return $this->_query;
-        }
-
-        $this->_query=new Query;
-        $this->_query->select('id, payload')
-            ->from($this->getTableName())
-            ->where(['queue'=>$queue])
-            ->andWhere('run_at <= NOW()')
+        $query=new Query;
+        $query->from($this->getTableName())
+            ->andFilterWhere(['queue'=>$queue])
+            ->andWhere('run_at <= :timestamp', ['timestamp' => time()])
             ->limit(1);
 
-        return $this->_query;
+        return $query;
     }
 
     /**
@@ -122,9 +115,9 @@ class SqlQueue extends Component implements QueueInterface
      */
     public function pop($queue = null)
     {
-        $row=$this->getQuery($this->getQueue($queue))->one($this->connection);
+        $row=$this->getQuery($queue)->one($this->connection);
         if ($row) {
-            return $row['payload'];
+            return ArrayHelper::merge($row, json_decode($row['payload']));
         }
         return false;
     }
@@ -144,7 +137,7 @@ class SqlQueue extends Component implements QueueInterface
     {
         $this->connection->createCommand()->update(
             $this->getTableName(),
-            ['run_at' => new Expression('DATE_ADD(NOW(), INTERVAL :delay SECOND)', ['delay' => $delay])],
+            ['run_at' => time() + $delay],
             'id = :id',
             ['id' => $message['id']]
         )->execute();
