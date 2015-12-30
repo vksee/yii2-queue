@@ -5,10 +5,8 @@ namespace yii\queue;
 use yii\base\InvalidConfigException;
 use yii\db\Connection;
 use yii\db\Query;
-use yii\db\Expression;
 use yii\base\Component;
 use Yii;
-use yii\helpers\ArrayHelper;
 use yii\helpers\Json;
 
 class SqlQueue extends Component implements QueueInterface
@@ -117,7 +115,8 @@ class SqlQueue extends Component implements QueueInterface
     {
         $row=$this->getQuery($queue)->one($this->connection);
         if ($row) {
-            return ArrayHelper::merge($row, json_decode($row['payload']));
+            $row['body'] = Json::decode($row['payload']);
+            return $row;
         }
         return false;
     }

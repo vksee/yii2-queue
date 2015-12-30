@@ -14,8 +14,8 @@ use yii\console\Controller;
 class QueueController extends Controller
 {
 
-    private $timeout;
-    private $sleep=5;
+    private $_timeout;
+    private $_sleep=5;
 
     /**
      * Process a job
@@ -34,23 +34,33 @@ class QueueController extends Controller
      *
      * @param string $queueName
      * @param string $queueObjectName
+     *
+     * @return bool
      * @throws \Exception
      */
     public function actionListen($queueName = null, $queueObjectName = 'queue')
     {
         while (true) {
-            if ($this->timeout !==null) {
-                if ($this->timeout<time()) {
+            if ($this->_timeout !==null) {
+                if ($this->_timeout<time()) {
                     return true;
                 }
             }
             if (!$this->process($queueName, $queueObjectName)) {
-                sleep($this->sleep);
+                sleep($this->_sleep);
             }
 
         }
     }
 
+    /**
+     * Process one unit of job in queue
+     *
+     * @param $queueName
+     * @param $queueObjectName
+     *
+     * @return bool
+     */
     protected function process($queueName, $queueObjectName)
     {
         $queue = Yii::$app->{$queueObjectName};
@@ -63,16 +73,15 @@ class QueueController extends Controller
                 $jobObject->run();
                 return true;
             } catch (\Exception $e) {
-                if ($queue->debug) {
-                    var_dump($e);
-                }
-
                 Yii::error($e->getMessage(), __METHOD__);
             }
         }
         return false;
     }
 
+    /**
+     * @inheritdoc
+     */
     public function beforeAction($action)
     {
         if (!parent::beforeAction($action)) {
@@ -80,10 +89,10 @@ class QueueController extends Controller
         }
 
         if (getenv('QUEUE_TIMEOUT')) {
-            $this->timeout=(int)getenv('QUEUE_TIMEOUT')+time();
+            $this->_timeout=(int)getenv('QUEUE_TIMEOUT')+time();
         }
         if (getenv('QUEUE_SLEEP')) {
-            $this->sleep=(int)getenv('QUEUE_SLEEP');
+            $this->_sleep=(int)getenv('QUEUE_SLEEP');
         }
         return true;
     }
