@@ -2,57 +2,53 @@
 
 namespace yii\queue\tests;
 
-use yii\db\Connection;
-use yii\db\Query;
-
 class SqlQueueTest extends TestCase
 {
-
     public function setUp()
     {
         $this->mockApplication([
             'components' => [
                 'queue' => [
-                    'class'=> 'yii\queue\SqlQueue'
+                    'class' => 'yii\queue\SqlQueue',
                 ],
                 'db' => [
                     'class' => 'yii\db\Connection',
                     'dsn' => 'sqlite::memory:',
                     'charset' => 'utf8',
-                ]
-            ]
+                ],
+            ],
         ]);
     }
 
     protected function pushJobToQueue($data = 'test', $delay = 0)
     {
-        $job=new TestJob([
-            'data'=>$data
+        $job = new TestJob([
+            'data' => $data,
         ]);
+
         return $job->push($delay);
     }
 
     public function testJobCreation()
     {
-        $job=new TestJob([
-            'data'=>'test'
+        $job = new TestJob([
+            'data' => 'test',
         ]);
         $this->assertEquals('test', $job->data);
     }
 
     public function testJobInsertion()
     {
-        $result=$this->pushJobToQueue();
-        $resolvedJob=\Yii::$app->queue->pop();
+        $result = $this->pushJobToQueue();
+        $resolvedJob = \Yii::$app->queue->pop();
         $this->assertEquals($result, $resolvedJob['id']);
     }
-
 
     public function testJobRun()
     {
         $this->pushJobToQueue(__FUNCTION__);
-        $job=\Yii::$app->queue->pop();
-        $jobObject = call_user_func($job['serializer'][1], $job['object']);
+        $job = \Yii::$app->queue->pop();
+        $jobObject = call_user_func($job['body']['serializer'][1], $job['body']['object']);
         $this->assertEquals(__FUNCTION__, $jobObject->data);
         $this->assertEquals(__FUNCTION__, $jobObject->run());
     }
@@ -60,7 +56,7 @@ class SqlQueueTest extends TestCase
     public function testJobDelete()
     {
         $this->pushJobToQueue(__FUNCTION__);
-        $job=\Yii::$app->queue->pop();
+        $job = \Yii::$app->queue->pop();
         \Yii::$app->queue->delete($job);
 
         $this->assertFalse(\Yii::$app->queue->pop());
@@ -74,7 +70,7 @@ class SqlQueueTest extends TestCase
 
     public function testJobPurge()
     {
-        for ($i = 0; $i <= 10; $i++) {
+        for ($i = 0; $i <= 10; ++$i) {
             $this->pushJobToQueue(time());
         }
         \Yii::$app->queue->purge('test');
