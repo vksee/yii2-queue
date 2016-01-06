@@ -34,7 +34,7 @@ class SqlQueue extends Component implements QueueInterface
         }
 
         if (!$this->connection instanceof Connection) {
-            throw new InvalidConfigException("Queue::connection must be application component ID of a SQL connection.");
+            throw new InvalidConfigException('Queue::connection must be application component ID of a SQL connection.');
         }
 
         if (!$this->hasTable()) {
@@ -44,14 +44,11 @@ class SqlQueue extends Component implements QueueInterface
 
     private function hasTable()
     {
-        $schema=$this->connection->schema->getTableSchema($this->getTableName(), true);
-        if ($schema==null) {
+        $schema = $this->connection->schema->getTableSchema($this->getTableName(), true);
+        if ($schema == null) {
             return false;
         }
-        if ($schema->columns['id']->comment!=='1.0.0') {
-            $this->dropTable();
-            return false;
-        }
+
         return true;
     }
 
@@ -77,7 +74,7 @@ class SqlQueue extends Component implements QueueInterface
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function push($payload, $queue = null, $delay = 0)
     {
@@ -86,14 +83,15 @@ class SqlQueue extends Component implements QueueInterface
             'payload' => Json::encode($payload),
             'run_at' => time() + $delay,
         ]);
+
         return $this->connection->lastInsertID;
     }
 
     private function getQuery($queue)
     {
-        $query=new Query;
+        $query = new Query();
         $query->from($this->getTableName())
-            ->andFilterWhere(['queue'=>$queue])
+            ->andFilterWhere(['queue' => $queue])
             ->andWhere('run_at <= :timestamp', ['timestamp' => time()])
             ->limit(1);
 
@@ -101,36 +99,38 @@ class SqlQueue extends Component implements QueueInterface
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function delete(array $message)
     {
-        $this->connection->createCommand()->delete($this->getTableName(), 'id=:id', [':id'=>$message['id']])->execute();
+        $this->connection->createCommand()->delete($this->getTableName(), 'id=:id', [':id' => $message['id']])->execute();
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function pop($queue = null)
     {
-        $row=$this->getQuery($queue)->one($this->connection);
+        $row = $this->getQuery($queue)->one($this->connection);
         if ($row) {
             $row['body'] = Json::decode($row['payload']);
+
             return $row;
         }
+
         return false;
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function purge($queue)
     {
-        $this->connection->createCommand()->delete($this->getTableName(), 'queue=:queue', [':queue'=>$queue])->execute();
+        $this->connection->createCommand()->delete($this->getTableName(), 'queue=:queue', [':queue' => $queue])->execute();
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function release(array $message, $delay = 0)
     {
