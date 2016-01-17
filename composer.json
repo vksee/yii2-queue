@@ -19,6 +19,7 @@
     "require-dev": {
         "aws/aws-sdk-php": "~3.0",
         "predis/predis": "~1.0",
+        "pda/pheanstalk": "3.0.0",
         "phpunit/phpunit": "~4.0",
         "phpunit/dbunit": "~1.0"
     },
