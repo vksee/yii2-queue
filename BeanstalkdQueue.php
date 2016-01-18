@@ -76,7 +76,7 @@ class BeanstalkdQueue extends Component implements QueueInterface
 
     public function pop($queue)
     {
-        $job = $this->beanstalkd->reserveFromTube($queue);
+        $job = $this->beanstalkd->reserveFromTube($queue,$this->timeout);
         return [
             'id'    => $job->getId(),
             'queue' => $queue,
