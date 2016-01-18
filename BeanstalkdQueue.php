@@ -19,12 +19,24 @@ use yii\helpers\Json;
  *
  * @author Mani Ka <subramanian.kailash@gmail.com>
  */
-class Beanstalkd extends Component implements QueueInterface
+class BeanstalkdQueue extends Component implements QueueInterface
 {
    /**
      * @var \Pheanstalk\Pheanstalk $beanstalkd
      */
     public $beanstalkd;
+    /**
+     * @var string
+     */
+    public $host        = 'localhost';
+    /**
+     * @var int
+     */
+    public $port        = PheanstalkInterface::DEFAULT_PORT;
+    /**
+     * @var int
+     */
+    public $timeout     = null;
 
     /**
      * Loads the Pheanstalk client for beanstalkd message broker / queue
@@ -35,11 +47,8 @@ class Beanstalkd extends Component implements QueueInterface
     public function init()
     {
         parent::init();
-        if($this->beanstalkd == null ){
-            throw new InvalidConfigException('The "beanstalkd" property must be set.');
-        }
         if(!$this->beanstalkd instanceof Pheanstalk){
-            $this->beanstalkd = new Pheanstalk($this->beanstalkd);
+            $this->beanstalkd = new Pheanstalk($this->host,$this->port,$this->timeout);
         }
     }
 
@@ -52,9 +61,7 @@ class Beanstalkd extends Component implements QueueInterface
     public function delete(Array $message)
     {
         $this->validateMessage($message);
-        $this->beanstalkd->useTube($message['queue']);
-        $job = new Job($message['id'], $message['body']);
-        return $this->beanstalkd->delete($job);
+        return $this->beanstalkd->useTube($message['queue'])->delete(new Job($message['id'], $message['body']));
     }
 
     public function push($payload, $queue,$delay = PheanstalkInterface::DEFAULT_DELAY)
@@ -71,18 +78,20 @@ class Beanstalkd extends Component implements QueueInterface
     {
         $job = $this->beanstalkd->reserveFromTube($queue);
         return [
-            'id'    => $job['id'],
+            'id'    => $job->getId(),
             'queue' => $queue,
-            'body'  => $job['data']
+            'body'  => $job->getData()
         ];
     }
 
     public function release(Array $message,$delay=PheanstalkInterface::DEFAULT_DELAY)
     {
         $this->validateMessage($message);
-        $this->beanstalkd->useTube($message['queue']);
-        $job = new Job($message['id'],$message['body']);
-        return $this->beanstalkd->release($job,PheanstalkInterface::DEFAULT_PRIORITY,$delay);
+        return $this->beanstalkd->useTube($message['queue'])
+            ->release(
+                new Job($message['id'],$message['body']),
+                PheanstalkInterface::DEFAULT_PRIORITY,$delay
+            );
     }
 
     public function purge($queue)
@@ -94,7 +103,7 @@ class Beanstalkd extends Component implements QueueInterface
 
     private function validateMessage(Array $message)
     {
-        if(isset($message['id']) || ~isset($message['body']) || !isset($message['queue'])){
+        if(!isset($message['id']) || !isset($message['body']) || !isset($message['queue'])){
             throw  new InvalidConfigException("Invalid message configuration");
         }
     }
